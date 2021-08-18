@@ -1,13 +1,12 @@
 use actix::prelude::*;
+use chess::{ChessMove, Game};
+use log::info;
 use rand::{self, rngs::ThreadRng, Rng};
-use chess::{Game, ChessMove};
+use std::collections::{HashMap, HashSet};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-use std::collections::{HashMap, HashSet};
-use log::{info};
-
 
 pub struct Room {
     users: HashSet<usize>,
@@ -136,7 +135,11 @@ impl Handler<Connect> for ChessServer {
         // auto join session to Main room
         self.rooms
             .entry(msg.room_name.clone())
-            .or_insert_with(|| Room { users: HashSet::new(), game: Game::new() }).users
+            .or_insert_with(|| Room {
+                users: HashSet::new(),
+                game: Game::new(),
+            })
+            .users
             .insert(id);
 
         let count = self.visitor_count.fetch_add(1, Ordering::SeqCst);
@@ -218,7 +221,11 @@ impl Handler<Join> for ChessServer {
 
         self.rooms
             .entry(name.clone())
-            .or_insert_with(|| Room { users: HashSet::new(), game: Game::new() }).users
+            .or_insert_with(|| Room {
+                users: HashSet::new(),
+                game: Game::new(),
+            })
+            .users
             .insert(id);
 
         self.send_message(&name, "Someone connected", id);
@@ -230,14 +237,14 @@ impl Handler<Move> for ChessServer {
     type Result = ();
 
     fn handle(&mut self, msg: Move, _: &mut Context<Self>) {
-        let Move { id, room_name , san} = msg;
+        let Move { id, room_name, san } = msg;
 
         if let Some(room) = self.rooms.get_mut(&room_name) {
             match ChessMove::from_san(&room.game.current_position(), &san) {
                 Ok(chess_move) => {
                     room.game.make_move(chess_move);
                     self.send_message(&room_name, &format!("Move made by {}: {}", id, san), 0);
-                },
+                }
                 Err(e) => {
                     self.send_message(&room_name, &format!("Illegal move: {:#?}", e), 0);
                 }
