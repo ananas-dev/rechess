@@ -1,42 +1,54 @@
 <script>
-  import { onDestroy } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import { user } from "../stores/signup.js";
 
   const SERVER_URL = "http://localhost:3000";
 
   let user_value;
 
-  const unsubscribe = user.subscribe(value => {
+  const unsubscribe = user.subscribe((value) => {
     user_value = value;
+  });
+
+  onMount(() => {
+    fetch(`${SERVER_URL}/api/hello/`).then((resp) =>
+      resp.text().then((body) => {
+        console.log("Got response: " + body);
+      })
+    );
   });
 
   const validate = () => {
     console.log(user_value);
 
-    fetch(`${SERVER_URL}/signup`, {
+    fetch(`${SERVER_URL}/api/signup/`, {
       method: "POST",
-      body: user_value
-    }).then(
-      resp => resp.json().then(body => {
-        console.log("Got response: " + body)
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(user_value),
+    }).then((resp) =>
+      resp.json().then((body) => {
+        console.log("Got response: " + JSON.stringify(body));
       })
-    )
-  }
+    );
+  };
 
-  onDestroy(unsubscribe)
+  onDestroy(unsubscribe);
 </script>
 
-<div class=form-container>
+<div class="form-container">
   <h1>Register</h1>
-  <form class=form-content on:submit|preventDefault={validate}>
-    <label for=username>Username</label>
-    <input class=username type=text bind:value={$user.name} />
-    <label for=email>Email</label>
-    <input class=email type=text bind:value={$user.email} />
-    <label for=password>Password</label>
-    <input class=password type=text bind:value={$user.password} />
-    <br/>
-    <button type=submit>Sign Up</button>
+  <form class="form-content" on:submit|preventDefault={validate}>
+    <label for="username">Username</label>
+    <input class="username" type="text" bind:value={$user.username} />
+    <label for="email">Email</label>
+    <input class="email" type="text" bind:value={$user.email} />
+    <label for="password">Password</label>
+    <input class="password" type="text" bind:value={$user.password} />
+    <br />
+    <button type="submit">Sign Up</button>
   </form>
 </div>
 
