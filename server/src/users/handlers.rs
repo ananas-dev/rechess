@@ -3,6 +3,9 @@ use super::model::{NewUser, User};
 use actix_web::{delete, get, post, web, web::ServiceConfig, HttpResponse, Responder};
 use sqlx::PgPool;
 use uuid::Uuid;
+use validator::Validate;
+
+// TODO: Proper error handling
 
 pub fn config(config: &mut ServiceConfig) {
     config
@@ -22,9 +25,14 @@ pub async fn get_users(db_pool: web::Data<PgPool>) -> impl Responder {
 
 #[post("/")]
 pub async fn create_user(data: web::Json<NewUser>, db_pool: web::Data<PgPool>) -> impl Responder {
+    match data.validate() {
+        Ok(_) => (),
+        Err(e) => return HttpResponse::BadRequest().body(format!("{}", e)),
+    };
+
     match User::create(&db_pool, data.into_inner()).await {
         Ok(data) => HttpResponse::Ok().json(data),
-        Err(e) => HttpResponse::BadRequest().body(format!("got error {:?}", e)),
+        Err(e) => HttpResponse::BadRequest().body(format!("{}", e)),
     }
 }
 
@@ -40,6 +48,6 @@ pub async fn get_user(id: web::Path<Uuid>, db_pool: web::Data<PgPool>) -> impl R
 pub async fn delete_user(id: web::Path<Uuid>, db_pool: web::Data<PgPool>) -> impl Responder {
     match User::delete(&db_pool, *id).await {
         Ok(_data) => HttpResponse::Ok().finish(),
-        Err(e) => HttpResponse::BadRequest().body(format!("got error {:?}", e)),
+        Err(e) => HttpResponse::BadRequest().body(format!("{}", e)),
     }
 }

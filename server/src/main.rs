@@ -1,3 +1,4 @@
+mod auth;
 mod chess_server;
 mod config;
 mod users;
@@ -39,7 +40,13 @@ async fn main() -> Result<()> {
             .app_data(Data::new(pool.clone()))
             .app_data(Data::new(server.clone()))
             .service(web::scope("/ws").configure(chess_server::config))
-            .service(web::scope("/api/v1").service(web::scope("/users").configure(users::config)))
+            .service(
+                web::scope("/api").service(
+                    web::scope("/v1")
+                        .service(web::scope("/users").configure(users::config))
+                        .service(web::scope("/auth").configure(auth::config)),
+                ),
+            )
     })
     .bind(format!("{}:{}", config.host, config.port))?
     .run()

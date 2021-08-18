@@ -10,6 +10,7 @@ pub struct Config {
     pub host: String,
     pub port: i32,
     pub database_url: String,
+    pub secret_key: String,
 }
 
 impl Config {
