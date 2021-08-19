@@ -3,7 +3,10 @@
 </script>
 
 <script>
-  const SERVER_URL = import.meta.env.VITE_SERVER_URL;
+  import { goto, prefetch } from '$app/navigation';
+  import { session } from "../stores/session"
+
+  const SERVER_URL = "http://localhost:5000";
 
   let login_data = {
     username: "",
@@ -22,8 +25,12 @@
       body: JSON.stringify(login_data),
     }).then((resp) =>
       resp.text().then((body) => {
-        console.log("Got response: " + body);
+        session.set({
+          token: body
+        });
+        goto("/");
       })
+
     );
     
 

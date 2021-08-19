@@ -4,9 +4,8 @@
 
 <script>
   import { onDestroy, onMount } from "svelte";
-  //import { user } from "../stores/signup.js";
 
-  const SERVER_URL = import.meta.env.VITE_SERVER_URL;
+  const SERVER_URL = "http://localhost:5000";
 
   let user = {
     username: "",
@@ -23,6 +22,13 @@
     user_value = value;
   });
   */
+
+  const check_email = () => {
+    const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    if (!re.test(user.username)) {
+      form_error = "Invalid email!";
+    }
+  }
 
   const validate = () => {
     if (user.password === password_confirmation) {
@@ -64,6 +70,7 @@
         class="email"
         placeholder="Email"
         type="text"
+        on:keyup={check_email}
         bind:value={user.email}
       />
       <input
@@ -118,15 +125,15 @@
     /* usual styles */
     padding: 10px;
     border: none;
-    background-color: #3f51b5;
+    background-color: #54b9ea;
     color: #fff;
     font-weight: 600;
     border-radius: 5px;
     width: 100%;
   }
 
-  .submit-btn:active {
-    background-color: #3b478a;
+  .submit-btn:hover {
+    background-color: #8aceeb;
   }
 
   .form-content {

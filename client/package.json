@@ -8,12 +8,16 @@
   },
   "devDependencies": {
     "@sveltejs/kit": "next",
+    "@types/chess.js": "^0.11.2",
+    "@types/d3": "^7.0.0",
     "svelte": "^3.34.0"
   },
   "type": "module",
   "dependencies": {
     "@fontsource/fira-mono": "^4.2.2",
     "@lukeed/uuid": "^2.0.0",
-    "cookie": "^0.4.1"
+    "chess.js": "^0.12.0",
+    "cookie": "^0.4.1",
+    "d3": "^7.0.1"
   }
 }

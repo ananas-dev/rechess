@@ -1,4 +1,5 @@
 use actix::prelude::*;
+use uuid::Uuid;
 use chess::{ChessMove, Game};
 use log::info;
 use rand::{self, rngs::ThreadRng, Rng};
@@ -9,7 +10,9 @@ use std::sync::{
 };
 
 pub struct Room {
-    users: HashSet<usize>,
+    white: Uuid,
+    black: Uuid,
+    spectators: HashSet<Uuid>,
     game: Game,
 }
 
@@ -32,34 +35,28 @@ pub struct Connect {
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct Disconnect {
-    pub id: usize,
+    pub id: Uuid,
 }
 
 /// Send message to specific room
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct ClientMessage {
-    /// Id of the client session
-    pub id: usize,
-    /// Peer message
+    pub id: Uuid,
     pub msg: String,
-    /// Room name
     pub room: String,
 }
 
-/// List of available rooms
 pub struct ListRooms;
 
 impl actix::Message for ListRooms {
     type Result = Vec<String>;
 }
 
-/// Join room, if room does not exists create new one.
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct Join {
-    /// Client id
-    pub id: usize,
+    pub id: Uuid,
     /// Room name
     pub name: String,
 }
@@ -68,7 +65,7 @@ pub struct Join {
 #[rtype(result = "()")]
 pub struct Move {
     /// Client id
-    pub id: usize,
+    pub id: Uuid,
     /// Room name
     pub room_name: String,
     pub san: String,
