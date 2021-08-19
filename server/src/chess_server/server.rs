@@ -25,7 +25,7 @@ pub struct Message(pub String);
 
 /// New chat session is created
 #[derive(Message)]
-#[rtype(usize)]
+#[rtype(Uuid)]
 pub struct Connect {
     pub addr: Recipient<Message>,
     pub room_name: String,
@@ -64,10 +64,8 @@ pub struct Join {
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct Move {
-    /// Client id
     pub id: Uuid,
-    /// Room name
-    pub room_name: String,
+    pub game_id: String,
     pub san: String,
 }
 

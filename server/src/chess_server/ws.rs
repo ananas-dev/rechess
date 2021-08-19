@@ -1,17 +1,19 @@
 use super::server;
+use super::model::{ClientMessage, ServerMessage};
 
 use actix::prelude::*;
 use actix_web_actors::ws;
 use log::{error, info, trace};
+use uuid::Uuid;
 use std::time::{Duration, Instant};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct WsChessSession {
-    pub id: usize,
+    pub id: Uuid,
     pub hb: Instant,
-    pub room_name: String,
+    pub game_id: String,
     pub name: Option<String>,
     pub addr: Addr<server::ChessServer>,
 }
@@ -34,7 +36,7 @@ impl Actor for WsChessSession {
         self.addr
             .send(server::Connect {
                 addr: addr.recipient(),
-                room_name: self.room_name.clone(),
+                room_name: self.game_id.clone(),
             })
             .into_actor(self)
             .then(|res, act, ctx| {
@@ -75,71 +77,35 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChessSession {
             Ok(msg) => msg,
         };
 
-        trace!("message: {:?}", msg);
+        trace!("Message: {:?}", msg);
         match msg {
             ws::Message::Ping(msg) => {
                 self.hb = Instant::now();
                 ctx.pong(&msg);
-            }
+            },
             ws::Message::Pong(_) => {
                 self.hb = Instant::now();
-            }
+            },
             ws::Message::Text(text) => {
-                let m = text.trim();
-                // we check for /sss type of messages
-                if m.starts_with('/') {
-                    let v: Vec<&str> = m.splitn(2, ' ').collect();
-                    match v[0] {
-                        "/list" => {
-                            // Send ListRooms message to chat server and wait for
-                            // response
-                            info!("List rooms");
-                            self.addr
-                                .send(server::ListRooms)
-                                .into_actor(self)
-                                .then(|res, _, ctx| {
-                                    match res {
-                                        Ok(rooms) => {
-                                            for room in rooms {
-                                                ctx.text(room);
-                                            }
-                                        }
-                                        _ => error!("Something is wrong"),
-                                    }
-                                    fut::ready(())
-                                })
-                                .wait(ctx)
-                            // .wait(ctx) pauses all events in context,
-                            // so actor wont receive any new messages until it get list
-                            // of rooms back
-                        }
-                        "/move" => {
-                            if v.len() == 2 {
+                match serde_json::from_str::<ClientMessage>(&text) {
+                    Ok(msg) => {
+                        match msg {
+                            ClientMessage::Move { from, to, fen } => {
                                 self.addr.do_send(server::Move {
                                     id: self.id,
-                                    room_name: self.room_name.clone(),
-                                    san: v[1].to_owned(),
+                                    game_id: self.game_id.clone(),
+                                    san: format!("{}{}", from, to),
                                 })
-                            } else {
-                                ctx.text("!!! move san is required")
                             }
                         }
-                        _ => ctx.text(format!("!!! unknown command: {:?}", m)),
+                    },
+                    Err(e) => {
+                        ctx.text(serde_json::to_string(
+                            &ServerMessage::Err("Invalid message".to_string())
+                        ).unwrap())
                     }
-                } else {
-                    let msg = if let Some(ref name) = self.name {
-                        format!("{}: {}", name, m)
-                    } else {
-                        m.to_owned()
-                    };
-                    // send message to chat server
-                    self.addr.do_send(server::ClientMessage {
-                        id: self.id,
-                        msg,
-                        room: self.room_name.clone(),
-                    })
                 }
-            }
+            },
             ws::Message::Binary(_) => error!("Unexpected binary"),
             ws::Message::Close(reason) => {
                 ctx.close(reason);

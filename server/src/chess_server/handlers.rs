@@ -6,6 +6,7 @@ use actix_web::{get, web, web::ServiceConfig, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 
 use std::time::Instant;
+use uuid::Uuid;
 
 pub fn config(config: &mut ServiceConfig) {
     config.service(chess_room);
@@ -16,13 +17,13 @@ pub async fn chess_room(
     req: HttpRequest,
     stream: web::Payload,
     srv: web::Data<Addr<server::ChessServer>>,
-    room_name: web::Path<String>,
+    game_id: web::Path<String>,
 ) -> Result<HttpResponse, Error> {
     ws::start(
         WsChessSession {
-            id: 0,
+            id: uuid::Uuid::nil(),
             hb: Instant::now(),
-            room_name: room_name.to_string(),
+            game_id: game_id.to_string(),
             name: None,
             addr: srv.get_ref().clone(),
         },
