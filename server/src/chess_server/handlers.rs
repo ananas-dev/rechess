@@ -1,3 +1,4 @@
+use crate::redis::{RedisActor, InfoCommand};
 use super::server;
 use super::ws::WsChessSession;
 
@@ -17,11 +18,16 @@ pub async fn chess_room(
     req: HttpRequest,
     stream: web::Payload,
     srv: web::Data<Addr<server::ChessServer>>,
+    redis_con: web::Data<Addr<RedisActor>>,
     game_id: web::Path<String>,
 ) -> Result<HttpResponse, Error> {
+    let test_res = redis_con.send(InfoCommand).await.unwrap().unwrap().unwrap();
+
+    println!("{}", &test_res);
+
     ws::start(
         WsChessSession {
-            id: uuid::Uuid::nil(),
+            id: 0,
             hb: Instant::now(),
             game_id: game_id.to_string(),
             name: None,

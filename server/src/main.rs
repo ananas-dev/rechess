@@ -2,6 +2,7 @@ mod auth;
 mod chess_server;
 mod config;
 mod users;
+mod redis;
 
 use crate::config::Config;
 
@@ -22,7 +23,7 @@ async fn main() -> Result<()> {
 
     let app_state = Arc::new(AtomicUsize::new(0));
     let pool = config.db_pool().await.expect("Data configuration");
-
+    let redis = config.redis_con().await;
     let server = chess_server::ChessServer::new(app_state.clone()).start();
 
     HttpServer::new(move || {
@@ -38,6 +39,8 @@ async fn main() -> Result<()> {
             .wrap(Logger::default())
             .app_data(Data::new(app_state.clone()))
             .app_data(Data::new(pool.clone()))
+            .app_data(Data::new(redis.clone()))
+            //.app_data(Data::new(redis.clone()))
             .app_data(Data::new(server.clone()))
             .service(web::scope("/ws").configure(chess_server::config))
             .service(

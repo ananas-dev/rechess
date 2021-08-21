@@ -1,21 +1,34 @@
+use actix::prelude::*;
 use serde::{Serialize, Deserialize};
-use color_eyre::Result;
 
 #[derive(Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum ClientMessage {
     Move {
-        from: String,
-        to: String,
+        san: String,
         fen: String,
     },
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum ServerMessage {
     Move {
-        from: String,
-        to: String,
+        san: String,
+        side: String,
         fen: String,
     },
-    Err(String),
+    Err {
+        what: ServerError,
+    },
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum ServerError {
+    InternalError,
+    InvalidInput,
+    IllegalMove,
 }

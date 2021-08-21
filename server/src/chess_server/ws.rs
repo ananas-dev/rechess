@@ -1,17 +1,20 @@
 use super::server;
-use super::model::{ClientMessage, ServerMessage};
+use super::model::{self, ServerMessage, ServerError, ClientMessage};
 
 use actix::prelude::*;
 use actix_web_actors::ws;
 use log::{error, info, trace};
-use uuid::Uuid;
 use std::time::{Duration, Instant};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Send(pub ServerMessage);
+
 pub struct WsChessSession {
-    pub id: Uuid,
+    pub id: usize,
     pub hb: Instant,
     pub game_id: String,
     pub name: Option<String>,
@@ -21,10 +24,7 @@ pub struct WsChessSession {
 impl Actor for WsChessSession {
     type Context = ws::WebsocketContext<Self>;
 
-    /// Method is called on actor start.
-    /// We register ws session with ChatServer
     fn started(&mut self, ctx: &mut Self::Context) {
-        // we'll start heartbeat process on session start.
         self.hb(ctx);
 
         // register self in chat server. `AsyncContext::wait` register
@@ -51,22 +51,11 @@ impl Actor for WsChessSession {
     }
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
-        // notify chat server
         self.addr.do_send(server::Disconnect { id: self.id });
         Running::Stop
     }
 }
 
-/// Handle messages from chat server, we simply send it to peer websocket
-impl Handler<server::Message> for WsChessSession {
-    type Result = ();
-
-    fn handle(&mut self, msg: server::Message, ctx: &mut Self::Context) {
-        ctx.text(msg.0);
-    }
-}
-
-/// WebSocket message handler
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChessSession {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         let msg = match msg {
@@ -90,18 +79,20 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChessSession {
                 match serde_json::from_str::<ClientMessage>(&text) {
                     Ok(msg) => {
                         match msg {
-                            ClientMessage::Move { from, to, fen } => {
+                            ClientMessage::Move { san, fen } => {
                                 self.addr.do_send(server::Move {
                                     id: self.id,
                                     game_id: self.game_id.clone(),
-                                    san: format!("{}{}", from, to),
+                                    san: san,
                                 })
                             }
                         }
                     },
-                    Err(e) => {
+                    Err(_e) => {
                         ctx.text(serde_json::to_string(
-                            &ServerMessage::Err("Invalid message".to_string())
+                            &ServerMessage::Err {
+                                what: ServerError::InvalidInput,
+                            }
                         ).unwrap())
                     }
                 }
@@ -142,5 +133,20 @@ impl WsChessSession {
 
             ctx.ping(b"");
         });
+    }
+}
+
+impl Handler<Send> for WsChessSession {
+    type Result = ();
+
+    fn handle(&mut self, msg: Send, ctx: &mut Self::Context) -> Self::Result {
+        match serde_json::to_string(&msg.0) {
+            Ok(msg) => ctx.text(msg),
+            Err(_e) => {
+                ctx.text(serde_json::to_string(&ServerMessage::Err {
+                    what: ServerError::InternalError,
+                }).unwrap())
+            }
+        }
     }
 }

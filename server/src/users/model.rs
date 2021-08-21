@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
-use sqlx::{postgres::PgQueryResult, PgPool};
+use sqlx::{PgPool};
 use uuid::Uuid;
 use validator_derive::Validate;
 
