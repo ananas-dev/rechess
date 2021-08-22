@@ -1,4 +1,4 @@
-use crate::redis::{InfoCommand, RedisActor};
+use crate::redis::{PingCommand, RedisActor};
 
 use actix::prelude::*;
 use futures::prelude::*;

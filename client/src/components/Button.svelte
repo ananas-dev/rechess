@@ -6,6 +6,7 @@
 <button
   class={`
     transition duration-300 ease-in-out
+    m-1
     bg-${type}
     py-2 px-7
     bg-green-500

@@ -1,4 +1,5 @@
 use super::model::{self, ServerMessage, ServerError};
+use crate::redis::{RedisActor, PingCommand};
 use super::ws;
 
 use actix::prelude::*;
@@ -6,6 +7,7 @@ use chess::{ChessMove, Game};
 use log::info;
 use rand::{self, rngs::ThreadRng, Rng};
 use std::collections::{HashMap, HashSet};
+use std::ops::Add;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
@@ -53,18 +55,20 @@ pub struct Move {
 
 pub struct ChessServer {
     sessions: HashMap<usize, Recipient<ws::Send>>,
+    redis: Addr<RedisActor>,
     rooms: HashMap<String, Room>,
     rng: ThreadRng,
     visitor_count: Arc<AtomicUsize>,
 }
 
 impl ChessServer {
-    pub fn new(visitor_count: Arc<AtomicUsize>) -> ChessServer {
+    pub fn new(visitor_count: Arc<AtomicUsize>, redis: Addr<RedisActor>) -> ChessServer {
         ChessServer {
             sessions: HashMap::new(),
             rooms: HashMap::new(),
             rng: rand::thread_rng(),
             visitor_count,
+            redis,
         }
     }
 }
@@ -90,8 +94,20 @@ impl Actor for ChessServer {
 impl Handler<Connect> for ChessServer {
     type Result = usize;
 
-    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
+    fn handle(&mut self, msg: Connect, ctx: &mut Context<Self>) -> Self::Result {
         info!("Someone joined");
+
+        &self.redis.send(PingCommand)
+            .into_actor(self)
+            .then(|res, act, ctx| {
+                match res {
+                    Ok(res) => info!("Ping from server: {}", res.unwrap().unwrap()),
+                    // something is wrong with chat server
+                    _ => ctx.stop(),
+                }
+                fut::ready(())
+            })
+            .wait(ctx);
         
         let id = self.rng.gen::<usize>();
         self.sessions.insert(id, msg.addr);

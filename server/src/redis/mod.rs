@@ -1,5 +1,5 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use redis::{Client, aio::MultiplexedConnection};
+use redis::{Client, Cmd, RedisResult, aio::MultiplexedConnection, cmd};
 use actix::prelude::*;
 
 pub struct RedisActor {
@@ -14,16 +14,24 @@ impl RedisActor {
     }
 }
 
-#[derive(Message, Debug)]
-#[rtype(result = "Result<Option<String>, redis::RedisError>")]
-pub struct InfoCommand;
+#[derive(Message)]
+#[rtype(result = "RedisResult<Option<String>>")]
+pub struct PingCommand;
 
-impl Handler<InfoCommand> for RedisActor {
-    type Result = ResponseFuture<Result<Option<String>, redis::RedisError>>;
+#[derive(Message)]
+#[rtype(result = "RedisResult<Option<String>>")]
+pub struct SetCommand;
 
-    fn handle(&mut self, _msg: InfoCommand, _: &mut Self::Context) -> Self::Result {
+#[derive(Message)]
+#[rtype(result = "RedisResult<Option<String>>")]
+pub struct Command(Cmd);
+
+impl Handler<PingCommand> for RedisActor {
+    type Result = ResponseFuture<RedisResult<Option<String>>>;
+
+    fn handle(&mut self, _msg: PingCommand, _: &mut Self::Context) -> Self::Result {
         let mut con = self.conn.clone();
-        let cmd = redis::cmd("INFO");
+        let cmd = redis::cmd("PING");
         let fut = async move {
             cmd
                 .query_async(&mut con)
@@ -33,11 +41,18 @@ impl Handler<InfoCommand> for RedisActor {
     }
 }
 
-impl Actor for RedisActor {
-    type Context = Context<Self>;
+impl Handler<Command> for RedisActor {
+    type Result = ResponseFuture<RedisResult<Option<String>>>;
+
+    fn handle(&mut self, msg: Command, ctx: &mut Self::Context) -> Self::Result {
+        let mut con = self.conn.clone();
+        let fut = async move {
+            msg.0.query_async(&mut con).await
+        };
+        Box::pin(fut)
+    }
 }
 
-async fn info(redis: web::Data<Addr<RedisActor>>) -> impl Responder {
-    let res = redis.send(InfoCommand).await.unwrap().unwrap().unwrap();
-    HttpResponse::Ok().body(res)
+impl Actor for RedisActor {
+    type Context = Context<Self>;
 }

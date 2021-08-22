@@ -3,6 +3,7 @@
   import { onMount, createEventDispatcher } from "svelte";
   import { Chess } from "chess.js";
 
+  import type { MoveEvent } from "../types/ChessBoard";
   import type { Color, Key } from "chessground/types";
   import type { Config } from "chessground/config";
   import type { Api } from "chessground/api";
@@ -15,7 +16,7 @@
   export let orientation: string = undefined;
   export let turn_color: string = undefined;
 
-  const dispatch = createEventDispatcher();
+  const dispatch = createEventDispatcher<{move: MoveEvent}>();
 
   let board: HTMLElement;
   let cg: Api;

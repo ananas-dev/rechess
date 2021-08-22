@@ -1,17 +1,20 @@
 <script lang="ts">
-  import { Router, Route } from "svelte-navigator";
   import Home from "./routes/Home.svelte";
   import Play from "./routes/Play.svelte";
+  import Router from "svelte-spa-router";
+  import NavBar from "./components/NavBar.svelte";
+
+  const routes = {
+    "/": Home,
+    "/play": Play,
+    //'*': NotFound,
+  };
 </script>
 
-<Router>
-  <Route path="/">
-    <Home />
-  </Route>
-  <Route path="play">
-    <Play />
-  </Route>
-</Router>
+<body>
+  <NavBar />
+  <Router {routes} />
+</body>
 
 <style lang="postcss" global>
   @tailwind base;

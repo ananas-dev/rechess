@@ -2,18 +2,27 @@ import { writable } from "svelte/store";
 
 const messageStore = writable("");
 
-const socket = new WebSocket("ws://localhost:3000/ws/test");
+let socket: WebSocket | null = null;
 
-socket.addEventListener("open", (event) => {
-  console.log("Connected to socket");
-});
+const create = () => {
+  socket = new WebSocket("ws://localhost:3000/ws/test");
 
-// Listen for messages
-socket.addEventListener("message", (event) => {
-  messageStore.set(event.data);
-});
+  socket.addEventListener("open", (event) => {
+    console.log("Connected to socket");
+  });
 
-const send_message = (message: string) => {
+  // Listen for messages
+  socket.addEventListener("message", (event) => {
+    messageStore.set(event.data);
+  });
+}
+
+const destroy = () => {
+  socket.close()
+  socket = null
+}
+
+const sendMessage = (message: string) => {
   if (socket.readyState <= 1) {
     socket.send(message);
   }
@@ -21,5 +30,7 @@ const send_message = (message: string) => {
 
 export default {
   subscribe: messageStore.subscribe,
-  send_message,
+  create,
+  sendMessage,
+  destroy,
 };

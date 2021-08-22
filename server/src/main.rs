@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
     let app_state = Arc::new(AtomicUsize::new(0));
     let pool = config.db_pool().await.expect("Data configuration");
     let redis = config.redis_con().await;
-    let server = chess_server::ChessServer::new(app_state.clone()).start();
+    let server = chess_server::ChessServer::new(app_state.clone(), redis.clone()).start();
 
     HttpServer::new(move || {
         let cors = Cors::default()

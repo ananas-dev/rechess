@@ -1,4 +1,4 @@
-use crate::redis::{RedisActor, InfoCommand};
+use crate::redis::{RedisActor, PingCommand};
 use super::server;
 use super::ws::WsChessSession;
 
@@ -8,6 +8,7 @@ use actix_web_actors::ws;
 
 use std::time::Instant;
 use uuid::Uuid;
+use log::info;
 
 pub fn config(config: &mut ServiceConfig) {
     config.service(chess_room);
@@ -21,9 +22,9 @@ pub async fn chess_room(
     redis_con: web::Data<Addr<RedisActor>>,
     game_id: web::Path<String>,
 ) -> Result<HttpResponse, Error> {
-    let test_res = redis_con.send(InfoCommand).await.unwrap().unwrap().unwrap();
+    let test_res = redis_con.send(PingCommand).await.unwrap().unwrap().unwrap();
 
-    println!("{}", &test_res);
+    info!("Ping from hander: {}", &test_res);
 
     ws::start(
         WsChessSession {
