@@ -83,11 +83,11 @@
 </script>
 
 <div
-  class="flex flex-col justify-center items-center text-center p-4 max-w-xs mx-auto sm:max-w-none"
+  class="flex flex-col justify-center items-center text-center p-4 max-w-xs mx-auto my-auto sm:max-w-none"
 >
   {#if started}
     <div>
-      <ChessBoard width="700px" height="700px" {orientation} {movableSide} {turnColor} on:move={handleMove} bind:move={move_command} />
+      <ChessBoard width="80vh" height="80vh" {orientation} {movableSide} {turnColor} on:move={handleMove} bind:move={move_command} />
     </div>
   {:else}
     <div on:click={() => { copyStringToClipboard(document.location.href)}}>

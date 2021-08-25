@@ -106,6 +106,8 @@
   .cg-wrap {
     width: 500px;
     height: 500px;
+    max-height: 100vw;
+    max-width: 100vw;
     box-sizing: content-box;
     position: relative;
     display: block;
