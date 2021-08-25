@@ -1,15 +1,13 @@
-use crate::redis::{PingCommand, RedisActor};
-
 use actix::prelude::*;
-use futures::prelude::*;
-use color_eyre::{Result, owo_colors::OwoColorize};
+use actix_redis::RedisActor;
+use color_eyre::{owo_colors::OwoColorize, Result};
 use eyre::WrapErr;
+use futures::prelude::*;
 use log::info;
 use serde::Deserialize;
 use sqlx::postgres::{PgPool, PgPoolOptions};
-use std::time::Duration;
-use redis::aio::Connection;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -38,6 +36,6 @@ impl Config {
     }
 
     pub async fn redis_con(&self) -> Addr<RedisActor> {
-        RedisActor::new(&self.redis_url).await.start()
+        RedisActor::start(&self.redis_url)
     }
 }

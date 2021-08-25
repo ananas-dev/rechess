@@ -1,33 +1,47 @@
 <script lang="ts">
   import { Chessground } from "chessground";
-  import { onMount, createEventDispatcher } from "svelte";
+  import { onMount, createEventDispatcher, onDestroy } from "svelte";
   import { Chess } from "chess.js";
 
   import type { MoveEvent } from "../types/ChessBoard";
   import type { Color, Key } from "chessground/types";
   import type { Config } from "chessground/config";
   import type { Api } from "chessground/api";
-  import type { ChessInstance } from "chess.js";
+  import type { ChessInstance, Square } from "chess.js";
 
   export let height: string = undefined;
   export let width: string = undefined;
-  export let fen: string = undefined;
+  //export let fen: string = undefined;
 
-  export let orientation: string = undefined;
-  export let turn_color: string = undefined;
+  export let orientation: Color = "white";
+  export let turnColor: Color = "white";
+  export let movableSide: Color = "white";
+  export let move = (from: Key, to: Key) => {
+    chess.move({from: from as Square, to: to as Square});
+    cg.set({
+      turnColor: toColor(chess),
+      movable: {
+        color: toColor(chess),
+        dests: toDests(chess)
+      }
+    });
+    cg.move(from, to);
+  } 
 
-  const dispatch = createEventDispatcher<{move: MoveEvent}>();
+  const dispatch = createEventDispatcher<{ move: MoveEvent }>();
 
   let board: HTMLElement;
+  let chess: ChessInstance = new Chess();
   let cg: Api;
-  let chess: ChessInstance;
 
-  onMount(async () => {
-    chess = fen ? new Chess(fen) : new Chess();
-    const side: "white" | "black" = "white";
-    const config = {
+  let config;
+
+  $: {
+    config = {
+      orientation,
+      turnColor,
       movable: {
-        color: side,
+        color: movableSide,
         free: false,
         dests: toDests(chess),
       },
@@ -35,7 +49,10 @@
         showGhost: true,
       },
     };
+    cg && cg.set(config);
+  }
 
+  onMount(async () => {
     cg = Chessground(board, config);
 
     cg.set({
@@ -61,22 +78,13 @@
     }
   });
 
-  export function playOtherSide(cg: Api, chess) {
-    return (orig, dest) => {
-      chess.move({ from: orig, to: dest });
-      cg.set({
-        turnColor: toColor(chess),
-        movable: {
-          color: toColor(chess),
-          dests: toDests(chess),
-        },
-      });
-    };
-  }
+  onDestroy(() => {
+    cg.destroy();
+  });
 
-  export function toColor(chess: any): Color {
+  const toColor = (chess: any): Color => {
     return chess.turn() === "w" ? "white" : "black";
-  }
+  };
 
   const toDests = (chess: ChessInstance): Map<Key, Key[]> => {
     const dests = new Map();

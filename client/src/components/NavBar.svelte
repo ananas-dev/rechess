@@ -6,12 +6,12 @@
         <!-- Primary Navbar items -->
         <div class="hidden md:flex items-center space-x-1">
           <a
-            href="#/"
+            href="/"
             class="py-4 px-2 text-gray-500 font-semibold hover:text-green-500 transition duration-300"
             >Home</a
           >
           <a
-            href="#/play"
+            href="/play"
             class="py-4 px-2 text-gray-500 font-semibold hover:text-green-500 transition duration-300"
             >Play</a
           >
@@ -20,7 +20,7 @@
       <!-- Secondary Navbar items -->
       <div class="hidden md:flex items-center space-x-3 ">
         <a
-          href=""
+          href="/"
           class="py-2 px-2 font-medium text-gray-500 rounded hover:bg-green-500 hover:text-white transition duration-300"
           >Log In</a
         >

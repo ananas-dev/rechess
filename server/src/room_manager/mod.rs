@@ -1,11 +1,14 @@
-use super::model::{self, ServerMessage, ServerError};
-use crate::redis::{RedisActor, PingCommand};
-use super::ws;
+use crate::websocket::{
+    self,
+    model::{ClientMessage, ServerError, ServerMessage},
+};
 
 use actix::prelude::*;
+use actix_redis::{Command, RedisActor};
 use chess::{ChessMove, Game};
 use log::info;
 use rand::{self, rngs::ThreadRng, Rng};
+use redis_async::{resp::RespValue, resp_array};
 use std::collections::{HashMap, HashSet};
 use std::ops::Add;
 use std::sync::{
@@ -21,7 +24,7 @@ pub struct Room {
 #[derive(Message)]
 #[rtype(usize)]
 pub struct Connect {
-    pub addr: Recipient<ws::Send>,
+    pub addr: Recipient<websocket::Send>,
     pub room_name: String,
 }
 
@@ -54,7 +57,7 @@ pub struct Move {
 }
 
 pub struct ChessServer {
-    sessions: HashMap<usize, Recipient<ws::Send>>,
+    sessions: HashMap<usize, Recipient<websocket::Send>>,
     redis: Addr<RedisActor>,
     rooms: HashMap<String, Room>,
     rng: ThreadRng,
@@ -79,7 +82,7 @@ impl ChessServer {
             for id in room.users.clone() {
                 if id != skip_id {
                     if let Some(addr) = self.sessions.get(&id) {
-                        let _ = addr.do_send(ws::Send(message.clone()));
+                        let _ = addr.do_send(websocket::Send(message.clone()));
                     }
                 }
             }
@@ -95,24 +98,20 @@ impl Handler<Connect> for ChessServer {
     type Result = usize;
 
     fn handle(&mut self, msg: Connect, ctx: &mut Context<Self>) -> Self::Result {
-        info!("Someone joined");
+        info!("Someone joined {}", msg.room_name);
 
-        &self.redis.send(PingCommand)
-            .into_actor(self)
-            .then(|res, act, ctx| {
-                match res {
-                    Ok(res) => info!("Ping from server: {}", res.unwrap().unwrap()),
-                    // something is wrong with chat server
-                    _ => ctx.stop(),
-                }
-                fut::ready(())
-            })
-            .wait(ctx);
-        
         let id = self.rng.gen::<usize>();
+        let uuid = uuid::Uuid::new_v4();
         self.sessions.insert(id, msg.addr);
 
-        let _room =  self.rooms
+        &self.redis.do_send(Command(resp_array![
+            "SET",
+            format!("rc:{}:creator", msg.room_name),
+            uuid.to_string()
+        ]));
+
+        let _room = self
+            .rooms
             .entry(msg.room_name.clone())
             .or_insert_with(|| Room {
                 users: HashSet::new(),
@@ -120,7 +119,7 @@ impl Handler<Connect> for ChessServer {
             })
             .users
             .insert(id);
-        
+
         //let count = self.visitor_count.fetch_add(1, Ordering::SeqCst);
 
         id
@@ -200,24 +199,42 @@ impl Handler<Move> for ChessServer {
     type Result = ();
 
     fn handle(&mut self, msg: Move, _: &mut Context<Self>) {
-        let Move { id, game_id, san } = msg;
+        /*
+        let Move { id, game_id, from, to } = msg;
 
         if let Some(room) = self.rooms.get_mut(&game_id) {
             let side = match room.game.side_to_move() {
                 chess::Color::Black => "b",
                 chess::Color::White => "w",
-            }.to_string();
+            }
+            .to_string();
 
             match ChessMove::from_san(&room.game.current_position(), &san) {
                 Ok(chess_move) => {
                     room.game.make_move(chess_move);
                     let fen = room.game.current_position().to_string();
-                    self.send_message(&game_id, ServerMessage::Move { san: san.to_owned(), side: side.to_owned(), fen }, 0);
+                    self.send_message(
+                        &game_id,
+                        ServerMessage::Move {
+                            san: san.to_owned(),
+                            side: side.to_owned(),
+                            fen,
+                        },
+                        0,
+                    );
                 }
                 Err(_e) => {
-                    self.send_message(&game_id, ServerMessage::Err { what: ServerError::IllegalMove }, 0);
+                    self.send_message(
+                        &game_id,
+                        ServerMessage::Err {
+                            what: ServerError::IllegalMove,
+                        },
+                        0,
+                    );
                 }
+
             }
         }
+         */
     }
 }

@@ -1,8 +1,10 @@
 mod auth;
-mod chess_server;
 mod config;
+mod room;
+mod room_manager;
+mod room_manager_ng;
 mod users;
-mod redis;
+mod websocket;
 
 use crate::config::Config;
 
@@ -10,21 +12,26 @@ use std::sync::{atomic::AtomicUsize, Arc};
 
 use actix::prelude::*;
 use actix_cors::Cors;
+use actix_session::{CookieSession, Session};
 use actix_web::{http, middleware::Logger, web, web::Data, App, HttpServer};
 use color_eyre::Result;
 use dotenv::dotenv;
 
 #[actix_web::main]
 async fn main() -> Result<()> {
+    // Inject .env into env var
     dotenv().ok();
+    // Init the logger
     env_logger::init();
+    // Init color eyre
+    color_eyre::install()?;
 
     let config = Config::from_env().expect("Server configuration");
 
     let app_state = Arc::new(AtomicUsize::new(0));
     let pool = config.db_pool().await.expect("Data configuration");
     let redis = config.redis_con().await;
-    let server = chess_server::ChessServer::new(app_state.clone(), redis.clone()).start();
+    let server = room_manager_ng::RoomManager::new().start();
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -37,12 +44,13 @@ async fn main() -> Result<()> {
         App::new()
             .wrap(cors)
             .wrap(Logger::default())
+            .wrap(CookieSession::signed(&[0; 32]).secure(false))
             .app_data(Data::new(app_state.clone()))
             .app_data(Data::new(pool.clone()))
             .app_data(Data::new(redis.clone()))
             //.app_data(Data::new(redis.clone()))
             .app_data(Data::new(server.clone()))
-            .service(web::scope("/ws").configure(chess_server::config))
+            .service(web::scope("/ws").configure(websocket::config))
             .service(
                 web::scope("/api").service(
                     web::scope("/v1")

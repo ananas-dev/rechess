@@ -1,20 +1,28 @@
 <script lang="ts">
+  //import Router from "./components/router/Router.svelte";
+  //import Route from "./components/router/Route.svelte";
+
+  import Router, {wrap} from "svelte-spa-router";
+
   import Home from "./routes/Home.svelte";
   import Play from "./routes/Play.svelte";
-  import Router from "svelte-spa-router";
   import NavBar from "./components/NavBar.svelte";
 
-  const routes = {
-    "/": Home,
-    "/play": Play,
-    //'*': NotFound,
-  };
+
+const routes = {
+    // Exact path
+    '/': Home,
+
+    // Using named parameters, with last being optional
+    '/play/:room_id':  Play,
+}
+
+
 </script>
 
-<body>
-  <NavBar />
+<main>
   <Router {routes} />
-</body>
+</main>
 
 <style lang="postcss" global>
   @tailwind base;
