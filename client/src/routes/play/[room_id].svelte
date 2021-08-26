@@ -1,15 +1,25 @@
-<script lang="ts">
-  import ChessBoard from "../components/ChessBoard.svelte";
-  import Button from "../components/Button.svelte";
-  import { onMount, onDestroy } from "svelte";
-  import websocket from "../stores/websocket";
+<script context="module">
+  export const load = ({ page }) => {
+    return {
+      props: {
+        room_id: page.params.room_id,
+      },
+    };
+  };
+</script>
 
-  import type { MoveEvent } from "../types/ChessBoard";
+<script lang="ts">
+  import ChessBoard from "$lib/components/ChessBoard.svelte";
+  import Button from "$lib/components/Button.svelte";
+  import { wsBuilder } from "$lib/util/websocket";
+  import { onMount, onDestroy } from "svelte";
+
+  import type { MoveEvent } from "$lib/types/ChessBoard";
   import type { Square } from "chess.js";
   import type { Unsubscriber } from "svelte/store";
   import type { Color } from "chessground/types";
 
-  export let params: any = {};
+  export let room_id: string;
 
   let unsub: Unsubscriber;
 
@@ -21,11 +31,13 @@
 
   let move_command;
 
+  let socket: WebSocket;
+
   onMount(() => {
-    websocket.create(`/play/${params.room_id}`);
-    unsub = websocket.subscribe((currentMessage) => {
+    socket = wsBuilder(`/play/${room_id}`)
+    socket.onmessage = ({data}) => {
       try {
-        const msg = JSON.parse(currentMessage);
+        const msg = JSON.parse(data);
         console.log(msg);
 
         switch(msg.type) {
@@ -37,12 +49,12 @@
             break;
           case "move":
             move_command(msg.from, msg.to);
-            //movableSide = msg.color;
-            //turnColor = msg.color;
             break;
         }
-      } catch {}
-    });
+      } catch(e) {
+        console.error("Received invalid json data!");
+      }
+    }
   });
 
   const handleMove = (e: CustomEvent<MoveEvent>) => {
@@ -50,7 +62,7 @@
     // Move the chessboard
     chess.move({ from: from as Square, to: to as Square });
 
-    websocket.sendMessage(
+    socket.send(
       JSON.stringify({
         type: "move",
         from,
@@ -59,11 +71,6 @@
       })
     );
   };
-
-  onDestroy(() => {
-    websocket.destroy();
-    unsub();
-  });
 
   const copyStringToClipboard = (str: string) => {
     // Create new element
@@ -80,6 +87,12 @@
     // Remove temporary element
     document.body.removeChild(el);
   };
+
+  onDestroy(() => {
+    if (socket) {
+      socket.close();
+    }
+  })
 </script>
 
 <div

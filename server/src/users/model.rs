@@ -30,13 +30,12 @@ impl User {
     pub async fn create(pool: &PgPool, new_user: NewUser) -> Result<User> {
         let password_hash = "aa";
 
-        let user = sqlx::query_as!(
-            User,
+        let user = sqlx::query_as(
             "insert into users (username, email, password_hash) values ($1, $2, $3) returning *",
-            new_user.username,
-            new_user.email,
-            password_hash
         )
+        .bind(new_user.username)
+        .bind(new_user.email)
+        .bind(password_hash)
         .fetch_one(pool)
         .await?;
 
@@ -44,7 +43,7 @@ impl User {
     }
 
     pub async fn find_all(pool: &PgPool) -> Result<Vec<User>> {
-        let users = sqlx::query_as!(User, "select * from users")
+        let users = sqlx::query_as("select * from users")
             .fetch_all(pool)
             .await?;
 
@@ -52,7 +51,8 @@ impl User {
     }
 
     pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<User> {
-        let user = sqlx::query_as!(User, "select * from users where id = $1", id)
+        let user = sqlx::query_as("select * from users where id = $1")
+            .bind(id)
             .fetch_one(pool)
             .await?;
 
@@ -60,7 +60,8 @@ impl User {
     }
 
     pub async fn delete(pool: &PgPool, id: Uuid) -> Result<bool> {
-        let user = sqlx::query!("delete from users where id = $1", id)
+        let user = sqlx::query("delete from users where id = $1")
+            .bind(id)
             .execute(pool)
             .await?;
 

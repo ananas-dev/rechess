@@ -2,7 +2,32 @@ version: "3.9"
 services:
   client:
     build: ./client
+    container_name: rechess-client
     ports:
       - "5000:5000"
+
+  server:
+    image: server
+    container_name: rechess-server
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "8080:80"
+
   redis:
     image: "redis:alpine"
+
+  postgres:
+    image: "postgres:alpine"
+
+networks:
+  frontend:
+    # Use a custom driver
+    driver: custom-driver-1
+  backend:
+    # Use a custom driver which takes special options
+    driver: custom-driver-2
+    driver_opts:
+    foo: "1"
+    bar: "2"

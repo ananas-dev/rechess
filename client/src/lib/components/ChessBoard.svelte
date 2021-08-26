@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Chessground } from "chessground";
   import { onMount, createEventDispatcher, onDestroy } from "svelte";
   import { Chess } from "chess.js";
 
@@ -16,7 +15,7 @@
   export let orientation: Color = "white";
   export let turnColor: Color = "white";
   export let movableSide: Color = "white";
-  export let move = (from: Key, to: Key) => {
+  export const move = (from: Key, to: Key) => {
     chess.move({from: from as Square, to: to as Square});
     cg.set({
       turnColor: toColor(chess),
@@ -53,6 +52,8 @@
   }
 
   onMount(async () => {
+    // Hack to make chessground importable
+    const { Chessground } = await import("chessground");
     cg = Chessground(board, config);
 
     cg.set({

@@ -251,10 +251,8 @@ impl Handler<Move> for Room {
     type Result = ();
 
     fn handle(&mut self, msg: Move, ctx: &mut Self::Context) -> Self::Result {
-        info!("Received move");
         if self.started {
             if let Some(game) = &mut self.game {
-                info!("Received move <::>");
 
                 let player_color = match game.side_to_move() {
                     chess::Color::Black => PlayerColor::White,

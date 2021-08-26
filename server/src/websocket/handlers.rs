@@ -24,6 +24,7 @@ pub async fn join_room(
     session: Session,
 ) -> impl Responder {
     if let Some(id) = session.get::<uuid::Uuid>("rc-id")? {
+        println!("Found cookie: {}", id);
         ws::start(
             WebsocketSession::new(
                 id,
@@ -35,6 +36,7 @@ pub async fn join_room(
         )
     } else {
         let id = uuid::Uuid::new_v4();
+        println!("Created cookie: {}", id);
         session.insert("rc-id", id)?;
         ws::start(
             WebsocketSession::new(
