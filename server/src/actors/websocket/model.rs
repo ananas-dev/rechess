@@ -1,4 +1,4 @@
-use crate::room;
+use crate::actors::room;
 
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +29,11 @@ pub enum ServerMessage {
     },
     Start {
         color: room::PlayerColor,
+    },
+    Reconnect {
+        color: room::PlayerColor,
+        turn: room::PlayerColor,
+        fen: String,
     },
     List{
         rooms: Vec<String>,

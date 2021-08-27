@@ -1,20 +1,15 @@
-pub mod handlers;
 pub mod model;
 
-pub use handlers::config;
+pub use model::{ClientMessage, ServerError, ServerMessage};
 
-use crate::room::{self, Room};
-use crate::room_manager;
-use crate::room_manager_ng;
-use model::{ClientMessage, ServerError, ServerMessage};
+use super::room::{self, Room};
+use super::room_manager;
 
 use actix::prelude::*;
-use actix_redis::RedisActor;
 use actix_web_actors::ws;
-use log::{error, info, trace};
+use log::{error, trace};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
-use color_eyre::owo_colors::OwoColorize;
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -35,7 +30,7 @@ pub struct JoinedRoom(pub Addr<Room>);
 pub struct WebsocketSession {
     pub id: Uuid,
     pub hb: Instant,
-    pub room_manager: Addr<room_manager_ng::RoomManager>,
+    pub room_manager: Addr<room_manager::RoomManager>,
     pub room: Option<Addr<Room>>,
     pub connection: Connection,
 }
@@ -44,7 +39,7 @@ impl WebsocketSession {
     pub fn new(
         id: Uuid,
         connection: Connection,
-        room_manager: Addr<room_manager_ng::RoomManager>,
+        room_manager: Addr<room_manager::RoomManager>,
     ) -> Self {
         Self {
             id,
@@ -67,12 +62,12 @@ impl Actor for WebsocketSession {
         self.hb(ctx);
 
         self.room_manager
-            .send(room_manager_ng::Connect {
+            .send(room_manager::Connect {
                 id: self.id.clone(),
                 session: ctx.address().recipient(),
             })
             .into_actor(self)
-            .then(|res, act, ctx| {
+            .then(|res, _act, ctx| {
                 match res {
                     Ok(()) => (),
                     // Something has gone wrong, closing the socket
@@ -83,12 +78,12 @@ impl Actor for WebsocketSession {
             .wait(ctx);
 
         match &self.connection {
-            Connection::Play(room_id) => self.room_manager.do_send(room_manager_ng::Join {
+            Connection::Play(room_id) => self.room_manager.do_send(room_manager::Join {
                 id: self.id.clone(),
                 room_id: room_id.clone(),
                 session: ctx.address(),
             }),
-            Connection::Lobby => self.room_manager.do_send(room_manager_ng::List {
+            Connection::Lobby => self.room_manager.do_send(room_manager::List {
                 id: self.id.clone(),
                 items: 12,
                 session: ctx.address().recipient(),
@@ -127,9 +122,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebsocketSession 
                 Ok(msg) => match &self.connection {
                     Connection::Play(string) => match msg {
                         ClientMessage::Move { from, to, fen } => {
-                            info!("Got move message");
                             if let Some(room) = &self.room {
-                                info!("&self.room is not empty!");
                                 room.do_send(room::Move {
                                     id: self.id,
                                     from,
@@ -141,7 +134,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebsocketSession 
                     },
                     Connection::Lobby => match msg {
                         ClientMessage::Create => {
-                            self.room_manager.do_send(room_manager_ng::Create {
+                            self.room_manager.do_send(room_manager::Create {
                                 id: self.id,
                                 session: ctx.address(),
                             })
@@ -208,7 +201,6 @@ impl Handler<JoinedRoom> for WebsocketSession {
     type Result = ();
 
     fn handle(&mut self, msg: JoinedRoom, ctx: &mut Self::Context) -> Self::Result {
-        info!("GOT <JoinedRoom>");
         self.room = Some(msg.0);
     }
 }

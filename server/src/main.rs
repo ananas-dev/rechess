@@ -1,21 +1,19 @@
-mod auth;
+mod actors;
+mod app;
 mod config;
-mod room;
-mod room_manager;
-mod room_manager_ng;
-mod users;
-mod websocket;
+mod util;
 
+use crate::app::{auth, rooms, users, ws};
 use crate::config::Config;
-
-use std::sync::{atomic::AtomicUsize, Arc};
+use crate::actors::room_manager;
 
 use actix::prelude::*;
 use actix_cors::Cors;
-use actix_session::{CookieSession, Session};
+use actix_session::CookieSession;
 use actix_web::{http, middleware::Logger, web, web::Data, App, HttpServer};
 use color_eyre::Result;
 use dotenv::dotenv;
+use std::sync::{atomic::AtomicUsize, Arc};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -31,7 +29,7 @@ async fn main() -> Result<()> {
     let app_state = Arc::new(AtomicUsize::new(0));
     let pool = config.db_pool().await.expect("Data configuration");
     let redis = config.redis_con().await;
-    let server = room_manager_ng::RoomManager::new().start();
+    let server = room_manager::RoomManager::new(redis.clone()).start();
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -48,14 +46,14 @@ async fn main() -> Result<()> {
             .app_data(Data::new(app_state.clone()))
             .app_data(Data::new(pool.clone()))
             .app_data(Data::new(redis.clone()))
-            //.app_data(Data::new(redis.clone()))
             .app_data(Data::new(server.clone()))
-            .service(web::scope("/ws").configure(websocket::config))
+            .service(web::scope("/ws").configure(ws::config))
             .service(
                 web::scope("/api").service(
                     web::scope("/v1")
                         .service(web::scope("/users").configure(users::config))
-                        .service(web::scope("/auth").configure(auth::config)),
+                        .service(web::scope("/auth").configure(auth::config))
+                        .service(web::scope("/rooms").configure(rooms::config)),
                 ),
             )
     })

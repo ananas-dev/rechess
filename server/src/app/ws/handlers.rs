@@ -1,5 +1,5 @@
-use super::{Connection, WebsocketSession};
-use crate::{room_manager, room_manager_ng};
+use crate::actors::websocket::{Connection, WebsocketSession};
+use crate::actors::room_manager;
 
 use actix::prelude::*;
 use actix_redis::RedisActor;
@@ -19,7 +19,7 @@ pub fn config(config: &mut ServiceConfig) {
 pub async fn join_room(
     req: HttpRequest,
     stream: web::Payload,
-    srv: web::Data<Addr<room_manager_ng::RoomManager>>,
+    srv: web::Data<Addr<room_manager::RoomManager>>,
     room_id: web::Path<String>,
     session: Session,
 ) -> impl Responder {
@@ -54,7 +54,7 @@ pub async fn join_room(
 pub async fn join_lobby(
     req: HttpRequest,
     stream: web::Payload,
-    srv: web::Data<Addr<room_manager_ng::RoomManager>>,
+    srv: web::Data<Addr<room_manager::RoomManager>>,
     session: Session,
 ) -> impl Responder {
     if let Some(id) = session.get::<uuid::Uuid>("rc-id")? {

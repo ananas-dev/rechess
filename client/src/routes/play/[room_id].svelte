@@ -1,8 +1,14 @@
 <script context="module">
-  export const load = ({ page }) => {
+  import { devServerHost, devServerPort } from "$lib/util/env";
+  export const load = async ({ page }) => {
+    let fen = await fetch(
+      `http://${devServerHost}:${devServerPort}/api/v1/rooms/${page.params.room_id}`
+    );
+
     return {
       props: {
         room_id: page.params.room_id,
+        room_info: await fen.json(),
       },
     };
   };
@@ -20,41 +26,56 @@
   import type { Color } from "chessground/types";
 
   export let room_id: string;
+  export let room_info: any;
 
   let unsub: Unsubscriber;
 
-  let started = false;
+  let inGame = false;
   let orientation: Color;
   let movableSide: Color;
   let turnColor: Color;
-  let room_url;
+  let fen: string = room_info.fen;
 
-  let move_command;
+  let moveCommand;
+  let loadCommand;
 
   let socket: WebSocket;
 
-  onMount(() => {
-    socket = wsBuilder(`/play/${room_id}`)
-    socket.onmessage = ({data}) => {
+  onMount(async () => {
+    if (room_info.fen) {
+      inGame = true;
+    }
+
+    socket = wsBuilder(`/play/${room_id}`);
+    console.log(room_info);
+    socket.onmessage = ({ data }) => {
       try {
         const msg = JSON.parse(data);
         console.log(msg);
 
-        switch(msg.type) {
+        switch (msg.type) {
+          case "move":
+            moveCommand(msg.from, msg.to);
+            break;
           case "start":
             orientation = msg.color;
             movableSide = msg.color;
             turnColor = "white";
-            started = true;
+            inGame = true;
             break;
-          case "move":
-            move_command(msg.from, msg.to);
+          case "reconnect":
+            inGame = true;
+            orientation = msg.color;
+            movableSide = msg.turn;
+            turnColor = msg.turn;
+            fen = msg.fen;
+            loadCommand(msg.fen);
             break;
         }
-      } catch(e) {
-        console.error("Received invalid json data!");
+      } catch (e) {
+        console.error(e);
       }
-    }
+    };
   });
 
   const handleMove = (e: CustomEvent<MoveEvent>) => {
@@ -92,18 +113,32 @@
     if (socket) {
       socket.close();
     }
-  })
+  });
 </script>
 
 <div
   class="flex flex-col justify-center items-center text-center p-4 max-w-xs mx-auto my-auto sm:max-w-none"
 >
-  {#if started}
+  {#if inGame}
     <div>
-      <ChessBoard width="80vh" height="80vh" {orientation} {movableSide} {turnColor} on:move={handleMove} bind:move={move_command} />
+      <ChessBoard
+        width="80vh"
+        height="80vh"
+        {orientation}
+        {movableSide}
+        {turnColor}
+        {fen}
+        on:move={handleMove}
+        bind:load={loadCommand}
+        bind:move={moveCommand}
+      />
     </div>
   {:else}
-    <div on:click={() => { copyStringToClipboard(document.location.href)}}>
+    <div
+      on:click={() => {
+        copyStringToClipboard(document.location.href);
+      }}
+    >
       <Button>Copy invite</Button>
     </div>
   {/if}

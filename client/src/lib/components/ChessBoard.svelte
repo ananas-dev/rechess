@@ -10,22 +10,27 @@
 
   export let height: string = undefined;
   export let width: string = undefined;
-  //export let fen: string = undefined;
 
   export let orientation: Color = "white";
   export let turnColor: Color = "white";
   export let movableSide: Color = "white";
+  export let fen: string;
+
   export const move = (from: Key, to: Key) => {
-    chess.move({from: from as Square, to: to as Square});
+    chess.move({ from: from as Square, to: to as Square });
     cg.set({
       turnColor: toColor(chess),
       movable: {
         color: toColor(chess),
-        dests: toDests(chess)
-      }
+        dests: toDests(chess),
+      },
     });
     cg.move(from, to);
-  } 
+  };
+
+  export const load = (fen: string) => {
+    chess.load(fen);
+  };
 
   const dispatch = createEventDispatcher<{ move: MoveEvent }>();
 
@@ -39,6 +44,7 @@
     config = {
       orientation,
       turnColor,
+      fen,
       movable: {
         color: movableSide,
         free: false,

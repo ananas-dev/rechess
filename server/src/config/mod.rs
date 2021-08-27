@@ -22,7 +22,7 @@ impl Config {
     pub fn from_env() -> Result<Config> {
         info!("Loading configuration");
 
-        envy::from_env().context("loading configuration from environement")
+        envy::from_env().context("loading configuration from environment")
     }
 
     pub async fn db_pool(&self) -> Result<PgPool> {
