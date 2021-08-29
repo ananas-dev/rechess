@@ -6,10 +6,12 @@ use super::websocket::model::{ServerError, ServerMessage};
 use super::websocket::{self, Send};
 
 use crate::actors::room::PlayerColor::White;
+use crate::actors::room_manager::{RemoveRoom, RoomManager};
 use crate::actors::websocket::WebsocketSession;
+use crate::util::chess::{get_dests};
 use actix::prelude::*;
 use actix_redis::Command;
-use chess::{ChessMove, Color, Game};
+use chess::{ChessMove, Color, Game, GameResult, MoveGen, Square};
 use color_eyre::owo_colors::OwoColorize;
 use log::info;
 use rand::Rng;
@@ -17,6 +19,7 @@ use redis_async::resp_array;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use uuid::Uuid;
+use actix_web::web::get;
 
 /*
    DISCLAIMER: THIS IS A MESS, I WILL FIX IT
@@ -35,17 +38,24 @@ pub struct Room {
     room_id: String,
     creator: Player,
     state: GameState,
+    room_manager: Addr<RoomManager>,
     redis: Recipient<Command>,
 }
 
 impl Room {
-    pub fn new(room_id: String, creator: Uuid, redis: Recipient<Command>) -> Self {
+    pub fn new(
+        room_id: String,
+        creator: Uuid,
+        room_manager: Addr<RoomManager>,
+        redis: Recipient<Command>,
+    ) -> Self {
         Self {
             room_id,
             creator: Player {
                 id: creator,
                 session: None,
             },
+            room_manager,
             redis,
             state: GameState::Waiting,
         }
@@ -74,12 +84,12 @@ impl Room {
                         if let Some(session) = &players.w.session {
                             session.do_send(Send(message))
                         }
-                    },
+                    }
                     PlayerColor::Black => {
                         if let Some(session) = &players.b.session {
                             session.do_send(Send(message))
                         }
-                    },
+                    }
                     PlayerColor::All => {
                         if let Some(session) = &players.w.session {
                             session.do_send(Send(message.clone()))
@@ -129,16 +139,21 @@ impl Handler<Join> for Room {
                         };
                     }
 
+                    let game = Game::new();
+
                     self.state = GameState::Started {
                         spectators: HashSet::new(),
                         players,
                         game: Game::new(),
                     };
 
+                    let board = game.current_position();
+
                     // TODO: make shorter
                     self.send_message(
                         ServerMessage::Start {
                             color: PlayerColor::Black,
+                            dests: None,
                         },
                         UserType::Player(PlayerColor::Black),
                     );
@@ -146,6 +161,7 @@ impl Handler<Join> for Room {
                     self.send_message(
                         ServerMessage::Start {
                             color: PlayerColor::White,
+                            dests: Some(get_dests(&board)),
                         },
                         UserType::Player(PlayerColor::White),
                     );
@@ -153,13 +169,12 @@ impl Handler<Join> for Room {
                     // TODO: turn into a function
                     self.redis
                         .do_send(Command(resp_array![
-                                    "HSET",
-                                    format!("rc:room:{}", &self.room_id),
-                                    "fen",
-                                    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-                                ]))
+                            "HSET",
+                            format!("rc:room:{}", &self.room_id),
+                            "fen",
+                            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                        ]))
                         .ok();
-
                 } else {
                     self.creator.session = Some(msg.session);
                 }
@@ -169,16 +184,18 @@ impl Handler<Join> for Room {
                 game,
                 spectators,
             } => {
+                let board = game.current_position();
+                let fen = board.to_string();
                 let turn = match game.side_to_move() {
                     Color::White => PlayerColor::White,
                     Color::Black => PlayerColor::Black,
                 };
                 if msg.id == players.w.id {
                     players.w.session = Some(msg.session);
-                    let fen = game.current_position().to_string();
                     self.send_message(
                         ServerMessage::Reconnect {
                             color: PlayerColor::White,
+                            dests: Some(get_dests(&board)),
                             fen,
                             turn,
                         },
@@ -186,10 +203,10 @@ impl Handler<Join> for Room {
                     );
                 } else if msg.id == players.b.id {
                     players.b.session = Some(msg.session);
-                    let fen = game.current_position().to_string();
                     self.send_message(
                         ServerMessage::Reconnect {
                             color: PlayerColor::Black,
+                            dests: Some(get_dests(&board)),
                             fen,
                             turn,
                         },
@@ -236,7 +253,7 @@ impl Handler<Leave> for Room {
 impl Handler<Move> for Room {
     type Result = ();
 
-    fn handle(&mut self, msg: Move, _ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: Move, ctx: &mut Self::Context) -> Self::Result {
         if let GameState::Started {
             players,
             spectators,
@@ -258,26 +275,50 @@ impl Handler<Move> for Room {
             match ChessMove::from_str(&format!("{}{}", msg.from, msg.to)) {
                 Ok(chess_move) => {
                     if game.make_move(chess_move) {
-                        let fen = game.current_position().to_string();
+                        let result = game.result();
+                        let board = game.current_position();
+                        let fen = board.to_string();
 
                         self.send_message(
                             ServerMessage::Move {
-                                from: msg.from,
-                                to: msg.to,
                                 side,
                                 fen: fen.clone(),
+                                dests: Some(get_dests(&board)),
                             },
-                            UserType::Player(player_color),
+                            UserType::Player(PlayerColor::All),
                         );
 
                         self.redis
                             .do_send(Command(resp_array![
-                                    "HSET",
-                                    format!("rc:room:{}", &self.room_id),
-                                    "fen",
-                                    fen
-                                ]))
+                                "HSET",
+                                format!("rc:room:{}", &self.room_id),
+                                "fen",
+                                fen
+                            ]))
                             .ok();
+
+                        if let Some(result) = result.clone() {
+                            let result = match result {
+                                GameResult::WhiteCheckmates => GameEndResult::WhiteCheckmates,
+                                GameResult::WhiteResigns => GameEndResult::WhiteResigns,
+                                GameResult::BlackCheckmates => GameEndResult::BlackCheckmates,
+                                GameResult::BlackResigns => GameEndResult::BlackResigns,
+                                GameResult::Stalemate => GameEndResult::Stalemate,
+                                GameResult::DrawAccepted => GameEndResult::DrawAccepted,
+                                GameResult::DrawDeclared => GameEndResult::Stalemate,
+                            };
+
+                            self.send_message(
+                                ServerMessage::GameEnd { result },
+                                UserType::Player(PlayerColor::All),
+                            );
+
+                            self.room_manager.do_send(RemoveRoom {
+                                room_id: self.room_id.clone(),
+                            });
+
+                            ctx.stop();
+                        }
                     } else {
                         self.send_message(
                             ServerMessage::Err {

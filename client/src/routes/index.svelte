@@ -10,7 +10,7 @@
 
   onMount(async () => {
     socket = wsBuilder("/");
-    socket.onmessage = ({data}) => {
+    socket.onmessage = ({ data }) => {
       try {
         const msg = JSON.parse(data);
         console.log(msg);
@@ -20,15 +20,15 @@
             rooms = msg.rooms;
             break;
           case "create":
-            goto(`/play/${msg.room_id}`);
+            goto(`/${msg.room_id}`);
             break;
           default:
             break;
         }
-      } catch(e) {
+      } catch (e) {
         console.error("Received invalid json data!");
       }
-    }
+    };
   });
 
   const handleCreateGame = () => {
@@ -43,7 +43,7 @@
     if (socket) {
       socket.close();
     }
-  })
+  });
 </script>
 
 <div class="text-center p-4 max-w-xs mx-auto sm:max-w-none">
@@ -59,9 +59,9 @@
   >
     {#each rooms as room}
       <div>
-        <a href={`/play/${room}`}>
+        <a sveltekit:prefetch href={`/${room}`}>
           <div
-            class="overflow-hidden rounded-lg shadow-md hover:shadow-xl transition duration-301 ease-in-out bg-green-500 hover:bg-green-600"
+            class="overflow-hidden rounded-lg shadow-md hover:shadow-xl transition duration-300 ease-in-out bg-green-500 hover:bg-green-600"
           >
             <header
               class="flex items-center justify-center leading-tight p-2 md:p-4"

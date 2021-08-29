@@ -23,6 +23,17 @@ pub enum PlayerColor {
     All,
 }
 
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum GameEndResult {
+    WhiteCheckmates,
+    WhiteResigns,
+    BlackCheckmates,
+    BlackResigns,
+    Stalemate,
+    DrawAccepted,
+}
+
 // User storage data structures
 
 pub struct Players {

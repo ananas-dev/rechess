@@ -41,6 +41,12 @@ pub struct List {
     pub session: Recipient<websocket::Send>,
 }
 
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct RemoveRoom {
+    pub room_id: String,
+}
+
 #[derive(Clone)]
 pub struct RoomData {
     pub created_at: Instant,

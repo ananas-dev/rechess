@@ -8,7 +8,7 @@ use super::websocket::model::ServerMessage;
 use actix::prelude::*;
 use actix_redis::RedisActor;
 use indexmap::IndexMap;
-use log::{info};
+use log::info;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use std::collections::HashMap;
@@ -74,7 +74,13 @@ impl Handler<Create> for RoomManager {
         info!("Creating new room with id: {}", room_id);
 
         let room = RoomData {
-            addr: Room::new(room_id.clone(), msg.id, self.redis.clone().recipient()).start(),
+            addr: Room::new(
+                room_id.clone(),
+                msg.id,
+                ctx.address(),
+                self.redis.clone().recipient(),
+            )
+            .start(),
             created_at: Instant::now(),
         };
 
@@ -83,6 +89,13 @@ impl Handler<Create> for RoomManager {
         msg.session.do_send(websocket::Send(ServerMessage::Create {
             room_id: room_id.clone(),
         }));
+
+        // TODO: Only send new room
+        for session in self.sessions.values() {
+            session.do_send(websocket::Send(ServerMessage::List {
+                rooms: self.rooms.keys().cloned().rev().take(12).collect(),
+            }));
+        }
 
         room_id
     }
@@ -101,5 +114,20 @@ impl Handler<List> for RoomManager {
         msg.session.do_send(websocket::Send(ServerMessage::List {
             rooms: self.rooms.keys().cloned().rev().take(msg.items).collect(),
         }));
+    }
+}
+
+impl Handler<RemoveRoom> for RoomManager {
+    type Result = ();
+
+    fn handle(&mut self, msg: RemoveRoom, ctx: &mut Self::Context) -> Self::Result {
+        self.rooms.remove(&msg.room_id);
+
+        // TODO: Only send new room
+        for session in self.sessions.values() {
+            session.do_send(websocket::Send(ServerMessage::List {
+                rooms: self.rooms.keys().cloned().rev().take(12).collect(),
+            }));
+        }
     }
 }

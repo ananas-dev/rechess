@@ -1,12 +1,10 @@
 <script lang="ts">
   import { onMount, createEventDispatcher, onDestroy } from "svelte";
-  import { Chess } from "chess.js";
 
   import type { MoveEvent } from "../types/ChessBoard";
-  import type { Color, Key } from "chessground/types";
+  import type { Color, Dests, Key } from "chessground/types";
   import type { Config } from "chessground/config";
   import type { Api } from "chessground/api";
-  import type { ChessInstance, Square } from "chess.js";
 
   export let height: string = undefined;
   export let width: string = undefined;
@@ -15,27 +13,11 @@
   export let turnColor: Color = "white";
   export let movableSide: Color = "white";
   export let fen: string;
-
-  export const move = (from: Key, to: Key) => {
-    chess.move({ from: from as Square, to: to as Square });
-    cg.set({
-      turnColor: toColor(chess),
-      movable: {
-        color: toColor(chess),
-        dests: toDests(chess),
-      },
-    });
-    cg.move(from, to);
-  };
-
-  export const load = (fen: string) => {
-    chess.load(fen);
-  };
+  export let dests: Dests;
 
   const dispatch = createEventDispatcher<{ move: MoveEvent }>();
 
   let board: HTMLElement;
-  let chess: ChessInstance = new Chess();
   let cg: Api;
 
   let config;
@@ -48,13 +30,14 @@
       movable: {
         color: movableSide,
         free: false,
-        dests: toDests(chess),
+        dests,
       },
       draggable: {
         showGhost: true,
       },
     };
     cg && cg.set(config);
+    cg && cg.playPremove();
   }
 
   onMount(async () => {
@@ -63,7 +46,12 @@
     cg = Chessground(board, config);
 
     cg.set({
+      highlight: {
+        lastMove: true,
+        check: true,
+      },
       movable: {
+        rookCastle: true,
         events: {
           after: (from, to, metadata) =>
             dispatch("move", {
@@ -71,7 +59,6 @@
               to,
               metadata,
               cg,
-              chess,
             }),
         },
       },
@@ -88,23 +75,6 @@
   onDestroy(() => {
     cg.destroy();
   });
-
-  const toColor = (chess: any): Color => {
-    return chess.turn() === "w" ? "white" : "black";
-  };
-
-  const toDests = (chess: ChessInstance): Map<Key, Key[]> => {
-    const dests = new Map();
-    chess.SQUARES.forEach((s) => {
-      const ms = chess.moves({ square: s, verbose: true });
-      if (ms.length)
-        dests.set(
-          s,
-          ms.map((m) => m.to)
-        );
-    });
-    return dests;
-  };
 </script>
 
 <div bind:this={board} />
@@ -237,21 +207,27 @@
     background-image: url("data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjxzdmcgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4PSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIgogICAgIHZpZXdCb3g9IjAgMCA4IDgiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyI+CjxnIGlkPSJhIj4KICA8ZyBpZD0iYiI+CiAgICA8ZyBpZD0iYyI+CiAgICAgIDxnIGlkPSJkIj4KICAgICAgICA8cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjZjBkOWI1IiBpZD0iZSIvPgogICAgICAgIDx1c2UgeD0iMSIgeT0iMSIgaHJlZj0iI2UiIHg6aHJlZj0iI2UiLz4KICAgICAgICA8cmVjdCB5PSIxIiB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjYjU4ODYzIiBpZD0iZiIvPgogICAgICAgIDx1c2UgeD0iMSIgeT0iLTEiIGhyZWY9IiNmIiB4OmhyZWY9IiNmIi8+CiAgICAgIDwvZz4KICAgICAgPHVzZSB4PSIyIiBocmVmPSIjZCIgeDpocmVmPSIjZCIvPgogICAgPC9nPgogICAgPHVzZSB4PSI0IiBocmVmPSIjYyIgeDpocmVmPSIjYyIvPgogIDwvZz4KICA8dXNlIHk9IjIiIGhyZWY9IiNiIiB4OmhyZWY9IiNiIi8+CjwvZz4KPHVzZSB5PSI0IiBocmVmPSIjYSIgeDpocmVmPSIjYSIvPgo8L3N2Zz4K");
   }
 
+  cg-board square.check {
+    background: radial-gradient(
+      ellipse at center,
+      rgba(255, 0, 0, 1) 0%,
+      rgba(231, 0, 0, 1) 25%,
+      rgba(169, 0, 0, 0) 89%,
+      rgba(158, 0, 0, 0) 100%
+    );
+  }
+
   /** Interactive board square colors */
   cg-board square.move-dest {
     background: radial-gradient(
-      rgba(20, 85, 30, 0.5) 22%,
-      #208530 0,
-      rgba(0, 0, 0, 0.3) 0,
-      rgba(0, 0, 0, 0) 0
+      rgba(20, 85, 30, 0.5) 19%,
+      rgba(0, 0, 0, 0) 20%
     );
   }
   cg-board square.premove-dest {
     background: radial-gradient(
-      rgba(20, 30, 85, 0.5) 22%,
-      #203085 0,
-      rgba(0, 0, 0, 0.3) 0,
-      rgba(0, 0, 0, 0) 0
+      rgba(20, 30, 85, 0.5) 19%,
+      rgba(0, 0, 0, 0) 20%
     );
   }
   cg-board square.oc.move-dest {

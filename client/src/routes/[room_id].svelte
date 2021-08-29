@@ -2,7 +2,7 @@
   import { devServerHost, devServerPort } from "$lib/util/env";
   export const load = async ({ page }) => {
     let fen = await fetch(
-      `http://${devServerHost}:${devServerPort}/api/v1/rooms/${page.params.room_id}`
+      `http://localhost/api/v1/rooms/${page.params.room_id}`
     );
 
     return {
@@ -18,33 +18,33 @@
   import ChessBoard from "$lib/components/ChessBoard.svelte";
   import Button from "$lib/components/Button.svelte";
   import { wsBuilder } from "$lib/util/websocket";
+  import { toDests } from "$lib/util/chess";
   import { onMount, onDestroy } from "svelte";
 
   import type { MoveEvent } from "$lib/types/ChessBoard";
-  import type { Square } from "chess.js";
-  import type { Unsubscriber } from "svelte/store";
   import type { Color } from "chessground/types";
 
   export let room_id: string;
   export let room_info: any;
 
-  let unsub: Unsubscriber;
-
-  let inGame = false;
   let orientation: Color;
   let movableSide: Color;
   let turnColor: Color;
   let fen: string = room_info.fen;
-
-  let moveCommand;
-  let loadCommand;
+  let dests;
 
   let socket: WebSocket;
 
+  enum GameState {
+    NotStarted,
+    Started,
+    Ended,
+  }
+
+  let state: GameState;
+
   onMount(async () => {
-    if (room_info.fen) {
-      inGame = true;
-    }
+    state = room_info.fen ? GameState.Started : GameState.NotStarted;
 
     socket = wsBuilder(`/play/${room_id}`);
     console.log(room_info);
@@ -55,22 +55,35 @@
 
         switch (msg.type) {
           case "move":
-            moveCommand(msg.from, msg.to);
+            turnColor = msg.side;
+            if (msg.dests) {
+              dests = toDests(msg.dests);
+            }
+            fen = msg.fen;
             break;
           case "start":
+            state = GameState.Started;
             orientation = msg.color;
             movableSide = msg.color;
             turnColor = "white";
-            inGame = true;
+            if (msg.dests) {
+              dests = toDests(msg.dests);
+            }
             break;
           case "reconnect":
-            inGame = true;
+            state = GameState.Started;
             orientation = msg.color;
-            movableSide = msg.turn;
+            movableSide = msg.color;
             turnColor = msg.turn;
+
+            if (msg.dests) {
+              dests = toDests(msg.dests);
+            }
+
             fen = msg.fen;
-            loadCommand(msg.fen);
             break;
+          case "game_end":
+            state = GameState.Ended;
         }
       } catch (e) {
         console.error(e);
@@ -79,20 +92,18 @@
   });
 
   const handleMove = (e: CustomEvent<MoveEvent>) => {
-    const { from, to, cg, chess } = e.detail;
-    // Move the chessboard
-    chess.move({ from: from as Square, to: to as Square });
-
+    const { from, to, cg } = e.detail;
     socket.send(
       JSON.stringify({
         type: "move",
         from,
         to,
-        fen: chess.fen(),
+        fen: cg.getFen(),
       })
     );
   };
 
+  // TODO: Move to some util file
   const copyStringToClipboard = (str: string) => {
     // Create new element
     var el = document.createElement("textarea");
@@ -119,7 +130,7 @@
 <div
   class="flex flex-col justify-center items-center text-center p-4 max-w-xs mx-auto my-auto sm:max-w-none"
 >
-  {#if inGame}
+  {#if state == GameState.Started}
     <div>
       <ChessBoard
         width="80vh"
@@ -128,12 +139,11 @@
         {movableSide}
         {turnColor}
         {fen}
+        {dests}
         on:move={handleMove}
-        bind:load={loadCommand}
-        bind:move={moveCommand}
       />
     </div>
-  {:else}
+  {:else if state == GameState.NotStarted}
     <div
       on:click={() => {
         copyStringToClipboard(document.location.href);
@@ -141,5 +151,7 @@
     >
       <Button>Copy invite</Button>
     </div>
+  {:else if state == GameState.Ended}
+    <div>GameOver</div>
   {/if}
 </div>
