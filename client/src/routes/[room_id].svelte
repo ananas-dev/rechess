@@ -2,7 +2,7 @@
   import { devServerHost, devServerPort } from "$lib/util/env";
   export const load = async ({ page }) => {
     let fen = await fetch(
-      `http://localhost/api/v1/rooms/${page.params.room_id}`
+      `http://localhost:5000/api/v1/rooms/${page.params.room_id}`
     );
 
     return {
@@ -20,6 +20,7 @@
   import { wsBuilder } from "$lib/util/websocket";
   import { toDests } from "$lib/util/chess";
   import { onMount, onDestroy } from "svelte";
+  import { page } from "$app/stores";
 
   import type { MoveEvent } from "$lib/types/ChessBoard";
   import type { Color } from "chessground/types";
@@ -32,6 +33,7 @@
   let turnColor: Color;
   let fen: string = room_info.fen;
   let dests;
+  let endStatus;
 
   let socket: WebSocket;
 
@@ -84,6 +86,7 @@
             break;
           case "game_end":
             state = GameState.Ended;
+            endStatus = msg.result;
         }
       } catch (e) {
         console.error(e);
@@ -127,10 +130,17 @@
   });
 </script>
 
+<svelte:head>
+  <meta title="og:title" content="Join a chess game!"/>
+  <meta title="og:website" content="rechess.org"/>
+  <meta title="og:type" content="website"/>
+  <meta title="og:url" content={$page.host + $page.path}/>
+</svelte:head>
+
 <div
   class="flex flex-col justify-center items-center text-center p-4 max-w-xs mx-auto my-auto sm:max-w-none"
 >
-  {#if state == GameState.Started}
+  {#if state == GameState.Started || state == GameState.Ended}
     <div>
       <ChessBoard
         width="80vh"
@@ -142,6 +152,16 @@
         {dests}
         on:move={handleMove}
       />
+      {#if state == GameState.Ended}
+        <div>
+          Game over: {endStatus}
+          <Button>
+            <a sveltekit:prefetch href="/">
+              Go back to the lobby
+            </a>
+          </Button>
+        </div>
+      {/if}
     </div>
   {:else if state == GameState.NotStarted}
     <div
@@ -151,7 +171,5 @@
     >
       <Button>Copy invite</Button>
     </div>
-  {:else if state == GameState.Ended}
-    <div>GameOver</div>
   {/if}
 </div>
