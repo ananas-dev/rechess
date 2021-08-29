@@ -90,8 +90,7 @@ pub struct Leave {
 #[rtype(result = "()")]
 pub struct Move {
     pub id: Uuid,
-    pub from: String,
-    pub to: String,
+    pub uci: String,
 }
 
 #[derive(Message)]

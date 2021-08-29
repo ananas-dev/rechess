@@ -15,10 +15,15 @@
   export let fen: string;
   export let dests: Dests;
 
+  export const move = (orig: Key, dest: Key) => {
+    cg.move(orig, dest);
+  };
+
+  let cg: Api;
+
   const dispatch = createEventDispatcher<{ move: MoveEvent }>();
 
   let board: HTMLElement;
-  let cg: Api;
 
   let config;
 
@@ -53,10 +58,10 @@
       movable: {
         rookCastle: true,
         events: {
-          after: (from, to, metadata) =>
+          after: (orig, dest, metadata) =>
             dispatch("move", {
-              from,
-              to,
+              orig,
+              dest,
               metadata,
               cg,
             }),

@@ -121,12 +121,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebsocketSession 
             ws::Message::Text(text) => match serde_json::from_str::<ClientMessage>(&text) {
                 Ok(msg) => match &self.connection {
                     Connection::Play(string) => match msg {
-                        ClientMessage::Move { from, to, fen } => {
+                        ClientMessage::Move { uci, fen } => {
                             if let Some(room) = &self.room {
                                 room.do_send(room::Move {
                                     id: self.id,
-                                    from,
-                                    to,
+                                    uci
                                 })
                             }
                         }

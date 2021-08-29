@@ -18,7 +18,7 @@
   import ChessBoard from "$lib/components/ChessBoard.svelte";
   import Button from "$lib/components/Button.svelte";
   import { wsBuilder } from "$lib/util/websocket";
-  import { toDests } from "$lib/util/chess";
+  import { toDests, uciToMove, moveToUci } from "$lib/util/chess";
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";
 
@@ -34,6 +34,8 @@
   let fen: string = room_info.fen;
   let dests;
   let endStatus;
+
+  let moveFunction;
 
   let socket: WebSocket;
 
@@ -58,10 +60,12 @@
         switch (msg.type) {
           case "move":
             turnColor = msg.side;
+            fen = msg.fen;
             if (msg.dests) {
+              const move = uciToMove(msg.uci);
+              moveFunction(move.orig, move.dest);
               dests = toDests(msg.dests);
             }
-            fen = msg.fen;
             break;
           case "start":
             state = GameState.Started;
@@ -77,12 +81,12 @@
             orientation = msg.color;
             movableSide = msg.color;
             turnColor = msg.turn;
+            fen = msg.fen;
 
             if (msg.dests) {
               dests = toDests(msg.dests);
             }
 
-            fen = msg.fen;
             break;
           case "game_end":
             state = GameState.Ended;
@@ -95,12 +99,12 @@
   });
 
   const handleMove = (e: CustomEvent<MoveEvent>) => {
-    const { from, to, cg } = e.detail;
+    const { orig, dest, cg } = e.detail;
+
     socket.send(
       JSON.stringify({
         type: "move",
-        from,
-        to,
+        uci: moveToUci({orig, dest}),
         fen: cg.getFen(),
       })
     );
@@ -131,10 +135,9 @@
 </script>
 
 <svelte:head>
-  <meta title="og:title" content="Join a chess game!"/>
-  <meta title="og:website" content="rechess.org"/>
-  <meta title="og:type" content="website"/>
-  <meta title="og:url" content={$page.host + $page.path}/>
+  <meta title="og:title" content="Join a chess game!" />
+  <meta title="og:type" content="website" />
+  <meta title="og:url" content={$page.host + $page.path} />
 </svelte:head>
 
 <div
@@ -151,14 +154,13 @@
         {fen}
         {dests}
         on:move={handleMove}
+        bind:move={moveFunction}
       />
       {#if state == GameState.Ended}
         <div>
           Game over: {endStatus}
           <Button>
-            <a sveltekit:prefetch href="/">
-              Go back to the lobby
-            </a>
+            <a sveltekit:prefetch href="/"> Go back to the lobby </a>
           </Button>
         </div>
       {/if}

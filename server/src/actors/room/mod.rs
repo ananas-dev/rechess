@@ -277,7 +277,7 @@ impl Handler<Move> for Room {
             }
             .to_string();
 
-            match ChessMove::from_str(&format!("{}{}", msg.from, msg.to)) {
+            match ChessMove::from_str(&msg.uci) {
                 Ok(chess_move) => {
                     if game.make_move(chess_move) {
                         let result = game.result();
@@ -286,6 +286,7 @@ impl Handler<Move> for Room {
 
                         self.send_message(
                             ServerMessage::Move {
+                                uci: msg.uci.clone(),
                                 side: side.clone(),
                                 fen: fen.clone(),
                                 dests: Some(get_dests(&board)),
@@ -295,6 +296,7 @@ impl Handler<Move> for Room {
 
                         self.send_message(
                             ServerMessage::Move {
+                                uci: msg.uci,
                                 side,
                                 fen: fen.clone(),
                                 dests: None,

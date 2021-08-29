@@ -7,7 +7,7 @@ use std::collections::HashMap;
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum ClientMessage {
-    Move { from: String, to: String, fen: String },
+    Move { uci: String, fen: String },
     Create,
     List(usize),
 }
@@ -17,6 +17,7 @@ pub enum ClientMessage {
 #[serde(rename_all = "snake_case")]
 pub enum ServerMessage {
     Move {
+        uci: String,
         side: String,
         fen: String,
         dests: Option<HashMap<String, String>>,
