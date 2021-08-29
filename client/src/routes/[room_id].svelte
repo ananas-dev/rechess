@@ -23,7 +23,7 @@
   import { page } from "$app/stores";
 
   import type { MoveEvent } from "$lib/types/ChessBoard";
-  import type { Color } from "chessground/types";
+  import type { Color, Key } from "chessground/types";
 
   export let room_id: string;
   export let room_info: any;
@@ -34,6 +34,7 @@
   let fen: string = room_info.fen;
   let dests;
   let endStatus;
+  let check: boolean = false;
 
   let moveFunction;
 
@@ -61,6 +62,7 @@
           case "move":
             turnColor = msg.side;
             fen = msg.fen;
+            check = msg.check;
             if (msg.dests) {
               const move = uciToMove(msg.uci);
               moveFunction(move.orig, move.dest);
@@ -82,6 +84,7 @@
             movableSide = msg.color;
             turnColor = msg.turn;
             fen = msg.fen;
+            check = msg.check;
 
             if (msg.dests) {
               dests = toDests(msg.dests);
@@ -99,12 +102,24 @@
   });
 
   const handleMove = (e: CustomEvent<MoveEvent>) => {
-    const { orig, dest, cg } = e.detail;
+    const { orig, dest, cg, metadata } = e.detail;
+
+    const piece = cg.state.pieces.get(dest);
+    let promotion = "";
+
+    // Temp code to autopromote to a queen
+    if (piece && piece.role === "pawn") {
+      if (piece.color === "white" && dest[1] === "8") {
+        promotion = "q"
+      } else if (piece.color === "black" && dest[1] === "1") {
+        promotion = "q"
+      }
+    }
 
     socket.send(
       JSON.stringify({
         type: "move",
-        uci: moveToUci({orig, dest}),
+        uci: moveToUci({orig, dest, promotion}),
         fen: cg.getFen(),
       })
     );
@@ -141,7 +156,7 @@
 </svelte:head>
 
 <div
-  class="flex flex-col justify-center items-center text-center p-4 max-w-xs mx-auto my-auto sm:max-w-none"
+  class="flex flex-col md:flex-row justify-center items-center text-center p-4 max-w-xs mx-auto my-auto h-full w-full sm:max-w-none"
 >
   {#if state == GameState.Started || state == GameState.Ended}
     <div>
@@ -153,6 +168,7 @@
         {turnColor}
         {fen}
         {dests}
+        {check}
         on:move={handleMove}
         bind:move={moveFunction}
       />

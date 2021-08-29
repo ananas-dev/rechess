@@ -1,7 +1,7 @@
 <script lang="ts">
   import Button from "$lib/components/Button.svelte";
   import { onMount, onDestroy } from "svelte";
-  import { goto } from "$app/navigation";
+  import { goto, prefetch } from "$app/navigation";
   import { wsBuilder } from "$lib/util/websocket";
 
   let rooms = [];

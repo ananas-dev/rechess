@@ -14,6 +14,7 @@
   export let movableSide: Color = "white";
   export let fen: string;
   export let dests: Dests;
+  export let check: boolean;
 
   export const move = (orig: Key, dest: Key) => {
     cg.move(orig, dest);
@@ -25,20 +26,17 @@
 
   let board: HTMLElement;
 
-  let config;
+  let config: Config;
 
   $: {
     config = {
       orientation,
       turnColor,
       fen,
+      check,
       movable: {
         color: movableSide,
-        free: false,
         dests,
-      },
-      draggable: {
-        showGhost: true,
       },
     };
     cg && cg.set(config);
@@ -57,6 +55,7 @@
       },
       movable: {
         rookCastle: true,
+        free: false,
         events: {
           after: (orig, dest, metadata) =>
             dispatch("move", {
@@ -66,6 +65,9 @@
               cg,
             }),
         },
+      },
+      draggable: {
+        showGhost: true,
       },
     });
 
@@ -260,15 +262,6 @@
   }
   cg-board square.selected {
     background-color: rgba(20, 85, 30, 0.5);
-  }
-  cg-board square.check {
-    background: radial-gradient(
-      ellipse at center,
-      rgba(255, 0, 0, 1) 0%,
-      rgba(231, 0, 0, 1) 25%,
-      rgba(169, 0, 0, 0) 89%,
-      rgba(158, 0, 0, 0) 100%
-    );
   }
   cg-board square.current-premove {
     background-color: rgba(20, 30, 85, 0.5);

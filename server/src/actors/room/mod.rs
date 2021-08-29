@@ -11,7 +11,7 @@ use crate::actors::websocket::WebsocketSession;
 use crate::util::chess::{get_dests};
 use actix::prelude::*;
 use actix_redis::Command;
-use chess::{ChessMove, Color, Game, GameResult, MoveGen, Square};
+use chess::{ChessMove, Color, Game, GameResult, MoveGen, Square, BitBoard};
 use color_eyre::owo_colors::OwoColorize;
 use log::info;
 use rand::Rng;
@@ -196,6 +196,7 @@ impl Handler<Join> for Room {
                         ServerMessage::Reconnect {
                             color: PlayerColor::White,
                             dests: Some(get_dests(&board)),
+                            check: board.checkers().popcnt() != 0,
                             fen,
                             turn,
                         },
@@ -207,6 +208,7 @@ impl Handler<Join> for Room {
                         ServerMessage::Reconnect {
                             color: PlayerColor::Black,
                             dests: Some(get_dests(&board)),
+                            check: board.checkers().popcnt() != 0,
                             fen,
                             turn,
                         },
@@ -283,6 +285,7 @@ impl Handler<Move> for Room {
                         let result = game.result();
                         let board = game.current_position();
                         let fen = board.to_string();
+                        let check = board.checkers().popcnt() != 0;
 
                         self.send_message(
                             ServerMessage::Move {
@@ -290,6 +293,7 @@ impl Handler<Move> for Room {
                                 side: side.clone(),
                                 fen: fen.clone(),
                                 dests: Some(get_dests(&board)),
+                                check,
                             },
                             UserType::Player(player_color),
                         );
@@ -300,6 +304,7 @@ impl Handler<Move> for Room {
                                 side,
                                 fen: fen.clone(),
                                 dests: None,
+                                check,
                             },
                             UserType::Player(opp_color),
                         );

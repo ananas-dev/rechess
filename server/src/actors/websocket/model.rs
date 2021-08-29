@@ -21,6 +21,7 @@ pub enum ServerMessage {
         side: String,
         fen: String,
         dests: Option<HashMap<String, String>>,
+        check: bool,
     },
     GameEnd {
         result: room::GameEndResult,
@@ -40,6 +41,7 @@ pub enum ServerMessage {
         turn: room::PlayerColor,
         fen: String,
         dests: Option<HashMap<String, String>>,
+        check: bool,
     },
     List{
         rooms: Vec<String>,
