@@ -265,6 +265,11 @@ impl Handler<Move> for Room {
                 chess::Color::White => PlayerColor::Black,
             };
 
+            let opp_color = match game.side_to_move() {
+                chess::Color::Black => PlayerColor::Black,
+                chess::Color::White => PlayerColor::White,
+            };
+
             let side = match player_color {
                 PlayerColor::White => "white",
                 PlayerColor::Black => "black",
@@ -281,11 +286,20 @@ impl Handler<Move> for Room {
 
                         self.send_message(
                             ServerMessage::Move {
-                                side,
+                                side: side.clone(),
                                 fen: fen.clone(),
                                 dests: Some(get_dests(&board)),
                             },
-                            UserType::Player(PlayerColor::All),
+                            UserType::Player(player_color),
+                        );
+
+                        self.send_message(
+                            ServerMessage::Move {
+                                side,
+                                fen: fen.clone(),
+                                dests: None,
+                            },
+                            UserType::Player(opp_color),
                         );
 
                         self.redis
